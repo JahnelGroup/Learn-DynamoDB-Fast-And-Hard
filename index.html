@@ -1,0 +1,311 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>reveal.js</title>
+
+		<link rel="stylesheet" href="reveal.js/dist/reset.css">
+		<link rel="stylesheet" href="reveal.js/dist/reveal.css">
+		<link rel="stylesheet" href="reveal.js/dist/theme/black.css">
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="reveal.js/plugin/highlight/monokai.css">
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+                <!-- Slides are separated by newline + three dashes + newline, vertical slides identical but two dashes -->
+                <section data-markdown data-separator="^\n---\n$" data-separator-vertical="^\n--\n$">
+                    <script type="text/template">
+						# Learn DynamoDB Fast and Hard
+						By: Christopher Nyberg / [NewMountain](https://github.com/NewMountain)
+
+						---
+
+						# Level Set
+
+						--
+
+						## What is a "fast and hard" presentation?
+
+						--
+						
+						### Inspired by the exceptional [Learn Haskell Fast and Hard](http://yannesposito.com/Scratch/en/blog/Haskell-the-Hard-Way/) by Yann Esposito
+
+						--
+
+						### Designed to briefly introduce everything you will need to know in a real production environment
+
+						--
+
+						### Not designed to teach!
+
+						#### Designed to _introduce_ you to everything you should know and expose gaps in your current knowledge
+
+						--
+						
+						### Success critera
+						
+						* The next time you work with DynamoDB, you have a page of contents for what you need to dive deep on when the need arises
+						* You will, hopefully, never be blindsided unexpectedly
+
+						---
+
+                        # Hot Take
+
+						--
+
+						## Typical AWS Documentation
+
+						![How to Draw an Owl Meme (Step One, a circle. Step 2, an exquisite photo-accurate owl drawing.)](https://i.kym-cdn.com/photos/images/facebook/000/572/078/d6d.jpg)
+
+						--
+
+						## Zen Master Wisdom
+
+						* Most AWS documentation is actually marketing material.
+						* You, the developer, are the customer.
+						* Your confidence is their sale.
+
+						![The Dunning-Kruger Effect](https://cdn.shopify.com/s/files/1/1679/4787/files/7pex59h04bp41_600x600.jpg?v=1610906095)
+
+						--
+
+						## How this typically works
+
+						* Starting documentation is designed to give you (false) confidence: draw the circle
+						* Product testimonials running Amazon shopping cart or Lyft's global dispatching: the finished owl
+						* You scouring stack overflow, clicking between two unhelpful AWS pages linking to each other, giving up and reading source code, and having an emotional breakdown at your monitor while getting a SEV2 page: all the actual steps in between
+
+						--
+
+						## My Hope for this presentation
+
+						* A less brutal outline of those steps between the circle and the owl
+
+						---
+
+						# What is a DynamoDB
+
+						* Key Value Store
+						* Wide Column Database
+						* Legitimately massive scale
+						* Legitimately Millisecond response times
+						* Connections over HTTP
+						* Amazon's operational burden, not yours
+
+						---
+
+						# TL; DR
+
+						* We specialize for scale and speed
+						
+						![O1 Keanu Meme](./01_keanu.png)
+						
+						---
+
+						# Dynamo Concepts
+
+						* Table
+						* Item
+						* Attributes
+						* Datatypes
+						* Keys
+						* Indexes
+						* Partitions
+						* Streams
+						* Backups
+						* Replication
+						* TTL
+						* Item Collection
+						* Read and Write Capacity Units
+						* NoSQL Modeling
+						* Backups
+						* Migrations
+
+						---
+
+						# Physical Implementation
+
+						* Region
+						* Hashing Function
+						* Data distribution and AZs
+						* Primary Node
+						* Two Secondary Nodes
+						* Regional vs Global Table tradeoffs
+						* Discussion of consistent reads
+
+						---
+
+						# Partitions (the core concept everyone misses)
+
+						* 3000 RCU and 1000 WCU per partition per second
+						* 10GB per partition limit (partition split beyond that)
+						* 
+
+						---
+
+						# Discussion of API
+
+						* Queries
+						* Scans (Just say no)
+						* Item-specific operations
+
+						---
+
+						# API Discussion from the trenches
+
+						* Pagination kind of sucks, but is necessary evil
+						* Odd LastEvaluationKey/ExclusiveStartKey syntax
+						* Single item <= 400KB
+						* 1 MB response limit
+						* Bulk Read:
+						* Bulk Write:
+						* Discussions of Filters, Projections, Conditions and Sort Key
+						* Atomic Operations
+
+						---
+
+						# Deep Dive on Capacity Units
+
+						---
+
+						# Repeat after me
+
+						NO CODING UNTIL YOU KNOW YOUR ACCESS PATTERNS
+
+						---
+
+						# Data Modeling 
+						
+						-- 
+
+						## 100 Scoville
+
+						* Attributes
+						* Sets
+
+						--
+
+						## 3,000 Scoville
+
+						* Nested Data Types
+						* Basic Denormalization
+
+						--
+
+						## 50,000 Scoville
+
+						* PK / SK Table Design
+						* Pre Joined Data
+						* Overloaded Indexes
+						* Numerous GSIs
+
+						--
+
+						## 300,000 Scoville
+
+						* One-To-Many Modeling
+						* Sparse Indexes
+
+						--
+
+						## Carolina Reaper (2 million Scoville)
+
+						* Many-To-Many Modeling
+						* Double Sided Data Access
+
+						--
+
+						## After death
+
+						* Just use streams to put it in another datastore...man.
+
+						---
+
+						# More Zen Master Wisdom
+
+						--
+
+						## This is Yngwie Malmsteen
+
+						* "I've learned not to say, 'No, I'd never do that.'"
+
+						![Yngwie Malmsteen](https://cdn.mos.cms.futurecdn.net/3TARaGGGVLQy4NPnwAdkd3.jpg)
+						
+						--
+
+						## This is BB King
+
+						* "Play like anyone you care about but try to be yourself while you're doing so."
+
+						![BB King](https://img.i-scmp.com/cdn-cgi/image/fit=contain,width=1098,format=auto/sites/default/files/styles/1200x800/public/2015/05/15/bb_king_ap.jpg?itok=BLVTpMdk)
+
+						---
+
+						# Backups
+
+						* PITR
+						* On Demand Backups
+						* Restores
+
+						---
+
+						# Streams
+
+						* Generally awesome
+						* Up to 7 day retention
+						* Fast and no load on table
+						* Discussion of shards
+						* ...until you get bad data
+						* Stream blocking, data loss or DLQ
+						* DLQ DDB steam type madness
+						* 
+
+						---
+
+						# Migrations
+
+						* Parallel Scans are your friend
+
+						---
+
+						# Global Tables
+
+						* For truly global scale operations, resiliency, and availability
+						* Solve a problem by creating more! 
+						  * Idempotency
+						  * (de)duplication
+						  * other infra replication/coordination
+
+						---
+
+						# Now draw the rest of that fucking owl
+
+						## Questions?
+
+
+                    </script>
+                </section>
+            </div>
+		</div>
+
+		<script src="reveal.js/dist/reveal.js"></script>
+		<script src="reveal.js/plugin/notes/notes.js"></script>
+		<script src="reveal.js/plugin/markdown/markdown.js"></script>
+		<script src="reveal.js/plugin/highlight/highlight.js"></script>
+		<script>
+			// More info about initialization & config:
+			// - https://revealjs.com/initialization/
+			// - https://revealjs.com/config/
+			Reveal.initialize({
+				hash: true,
+
+				// Learn about plugins: https://revealjs.com/plugins/
+				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+			});
+		</script>
+	</body>
+</html>
