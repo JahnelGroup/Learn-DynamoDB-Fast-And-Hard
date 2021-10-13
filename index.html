@@ -96,6 +96,12 @@
 						* Connections over HTTP
 						* Amazon's operational burden, not yours
 
+						--
+
+						## Physical Intuition
+
+						![DynamoDB Diagram Credit: Alex DeBrie](https://raw.githubusercontent.com/JahnelGroup/Learn-DynamoDB-Fast-And-Hard/main/ddb_diagram_credit_alex_debrie.png)
+
 						---
 
 						# TL; DR
@@ -103,55 +109,268 @@
 						* We specialize for scale and speed
 						
 						![O1 Keanu Meme](presentation/o1_keanu.png)
-						
+
 						---
 
 						# Dynamo Concepts
 
-						* Table
-						* Item
-						* Attributes
-						* Datatypes
-						* Keys
-						* Indexes
-						* Partitions
-						* Streams
-						* Backups
-						* Replication
-						* TTL
-						* Item Collection
-						* Read and Write Capacity Units
-						* NoSQL Modeling
-						* Backups
-						* Migrations
+						--
+
+						## Tables
+
+						* A collection of items
+						* Each item must have at least one index
+						* Each item may optionally have many additional indexes (GSIs and LSIs)
+						* There is no practical limit on table size
+						* 40,000 Read and Write Request Units (per second)
+
+						--
+
+						## Item
+
+						* A collection of attributes
+						* Only constraint is the item must adhere to index constraints
+						* Think of it as a "document" or JSON with some extra features
+						* 400 KB per item size limit
+
+						--
+
+						## Attributes
+
+						* Scalar Types
+						  * Number
+						  * String
+						  * Binary
+						  * Boolean
+						  * Null
+						* Nested Types
+						  * Sets
+						  * Lists
+						  * Maps
+
+						--
+
+						## Indexes
+
+						* Partition (Hash) Key
+						* Sort (Range) Key
+						* Simple Primary Key (parition only)
+						* Composite Primary Key (partition and sort)
+						* Must be unique (though components of composite key need not be)
+						* Global Secondary Indexes are great - use them a lot
+						* Local Secondary Indexes suck - basically never use them
+
+						--
+
+						## Streams
+
+						* The ability to "tail" your database
+						* On each operation (insert, update delete) a record will be sent to either Lambda or Kinesis
+
+						--
+
+						## Backups
+
+						* Several options exist
+						* Each option has awkward compromises, no obvious option for all use cases
+						* Is affected to choice of replication strategy
+
+						--
+
+						## Replication
+
+						* Global tables or Replication from backups
+
+						--
+
+						## TTL (Time to Live)
+
+						* The Time To Live can be set per table
+						* Automatic way to evict old data from a table
+						* Needs to be Unix Epoch **in seconds** _as a number_
+						* Runs as background process per partition
+						* Amazon only guarantees 48 hour SLA
+						* Personal experience: they are typically within a few minutes
+						* Weird edge cases
+						  * String attributes are silently ignored
+						  * Epoch times more than five years ago are assumed to be user error and not evicted
+						* TL; DR: Use it, don't rely on it (use query constraints instead)
+
+						--
+
+						## Item Collections and Partitions
+
+						* Each key is a partition and an item collection
+						* These two entities are the real things to pay attention to
+						* Partitions can be primary or secondary
+						* All writes must go to primary
+						* All _consistent_ reads must come from primary
+						* Writes are committed to primary and _one_ secondary before response
+						* Write is commitedd to second secondary single digit second(s) later
+
+						--
+
+						## Read and Write Capacity Units
+
+						* DyanmoDB pricing is determined (mostly) by RCU and WCU
+						* Two modes of provisioning RCUs and WCUs (Provisioned and On-Demand)
+
+						--
+
+						## NoSql Data Modeling
+
+						* Take a deep breath and forget SQL for now
+						* Some concepts here will be alien, uncomfortable or even seem "wrong"
+						* Generally: schema is on write, and work is done up-front to reduce work later
+
+						--
+
+						## Migrations
+
+						* Generally left to the user
+						* Benefit greatly from parallel scans
+						* Level of downtime will determine the difficulty
 
 						---
 
-						# Physical Implementation
+						# Deep Dive on Capacity Units and Billing
 
-						* Region
-						* Hashing Function
-						* Data distribution and AZs
-						* Primary Node
-						* Two Secondary Nodes
-						* Regional vs Global Table tradeoffs
-						* Discussion of consistent reads
+						--
+
+						## Read Capacity Unit
+
+						* Any read operation
+						* Billed in 4KB increments (rounded up)
+						* The total KB is based on the total size of the item read (not just index)
+						* Scan operations will read every item in a table!!!
+						* One RCU (Read Capacity unit) is 4KB of _strongly consistent_ read operation
+						* An _eventually consistent read_ of 4KB only counts as half an RCU
+						* A _transactional read_ is charged double, so a _transactional_ 4KB read is 2 RCU
+						* Calculated per request
+
+						--
+
+						## Write Capacity Unit
+
+						* Any Write Operation
+						* Billed in 1KB increments (rounded up)
+						* The KB sizing is based on the total size of the item written
+						* One WCU (Write Capacity Unit) is 1KB of written data
+						* A _transactional write_ is charged double, so a _transactional_ write of 1KB is 2 WCU
+						* Calculated per request
+
+						--
+
+						## On Demand Provisioning
+
+						* Generally the more popular option
+						* More expensive (roughly 7x more than provisioned [at full capacity])
+						* No need to estimate levels, just make it Amazon's problem
+						* Scale from trivial to bananas (assuming good access design)
+						* No waste for unused capacity
+						* Consistent from heavy use to sparse use, even in bursty workloads
+
+						--
+
+						## Provisioned Capacity
+
+						* Can be cheaper if your workloads are consistent and predictable
+						* Provision RCUs and WCUs independently
+						* Paid for on an hourly basis
+						* Unused capacity does not carry over
+						* Auto-scaling is an option but is slow to scale (usually responds in order of minutes)
+						* You can only switched between On-Demand and Provisioned once a day
+
+						--
+
+						# Other expenses
+
+						* Storage costs are generally $0.25 per GB per month
+						* Point In Time Recovery adds additional costs
+						* DynamoDB streams add additional costs (based on retreiving items from change stream)
+
+						--
+						
+						## Billing TL; DR
+
+						* Unless traffic is very consistent, predictable, even or changes slowly
+						* _and_ if the client is comfortable with the risk of potential throttling
+						* _and_ the client is very cost sensitive
+						* then use provisioned capacity
+						* In all other circumstances, just On-Demand capacity
+						* Caveat: unless you're at huge scales where the two converge at an upper TPS limit
+						
+						--
+
+						## AWS anti-patterns warning
+
+						* A client may focus lots of time and effort on reducing a Dynamo bill by picking the "right" capacity mode
+						* You can save, easily, far more by optimizing access patterns and usage by effective modeling instead
+						* Better optimizations:
+						  * Eliminate scans
+						  * Confirm you need transactions
+						  * Audit the efficiency of reads
+						  * Make sure all the data being read needs to be in the table
+						  * At scale: shorten attribute names
 
 						---
 
-						# Partitions (the core concept everyone misses)
+						# Partitions and Item Collections
 
 						* 3000 RCU and 1000 WCU per partition per second
 						* 10GB per partition limit (partition split beyond that)
-						* 
+						* An item collection holds up to 10GB
+						* If the item collection exceeds 10GB, it is split across partitions
+						* Partitions typically are the source of throttling
+						* Can be hard to debug throttling partitions
 
 						---
 
 						# Discussion of API
 
-						* Queries
-						* Scans (Just say no)
-						* Item-specific operations
+						--
+
+						## Queries
+
+						* An operation to affect a list of items
+						* Affects 0 or more items
+						* Can only be done on an index
+						* Allows the index to only be partially specified (part of a composite key)
+						* Allows Read or Write Operations by Query
+						* Can apply filters on the results of the query
+						* Response size can be reduced with projections
+
+						--
+
+						## Scans
+
+						* An operations to affect a list of items
+						* Affects 0 or more items
+						* Can be done on any attribute across all items in a table
+						* Will apply one or more filters to all items in the table
+						  * Contains/Does not Contain
+						  * Null/Not Null
+						  * `>, >=, ==, <=, <, !=`
+						  * etc
+
+						--
+
+						## Scans (continued)
+
+						* Allows read or write operations
+						* Massively expensive
+						* Very slow as dynamo must perform enormous scatter/gather operations
+						* The use of the API in basically any context is strongly discouraged
+
+						--
+
+						## Item-Specific Operations
+
+						* An operation to affect a single item
+						* Affects 0 or 1 item
+						* Can only be done on an index
+						* The index must be fully specified
+						* Write or Read an item
 
 						---
 
@@ -160,15 +379,23 @@
 						* Pagination kind of sucks, but is necessary evil
 						* Odd LastEvaluationKey/ExclusiveStartKey syntax
 						* Single item <= 400KB
-						* 1 MB response limit
-						* Bulk Read:
-						* Bulk Write:
+						* 1 MB limit in a single request
 						* Discussions of Filters, Projections, Conditions and Sort Key
 						* Atomic Operations
 
-						---
+						--
 
-						# Deep Dive on Capacity Units
+						## Bulk API Discussion
+
+						* Bulk Read
+						  * 16MB response size limit
+						  * 100 item limit
+						  * My advice: set batch size to 40 (16MB / 400KB max item size)
+						* Bulk Write
+						  * 16 MB request size limit
+						  * 25 Put or Delete requests
+						  * My advice: set batch size to 25
+						* Crazy gotcha: Duplicate items in a bulk request is an immediate throwing error!!!
 
 						---
 
@@ -176,52 +403,86 @@
 
 						NO CODING UNTIL YOU KNOW YOUR ACCESS PATTERNS
 
+						<!-- # Does Anyone like Star Wars?
+
+
+						![Star Wars API](https://raw.githubusercontent.com/JahnelGroup/Learn-DynamoDB-Fast-And-Hard/main/swapi_schema.png)
+						
+						--- -->
+
 						---
 
 						# Data Modeling 
 						
-						-- 
+						--
 
 						## 100 Scoville
 
 						* Attributes
 						* Sets
+						* Basically storing simple json
 
 						--
 
 						## 3,000 Scoville
 
 						* Nested Data Types
+						  * Put just the attributes of the child you need in the parent
+						  * Ideally, those attributes should be immutable
 						* Basic Denormalization
+						  * Put a list of IDs you can batch get from the index "shallow deduplication"
 
 						--
 
 						## 50,000 Scoville
-
-						* PK / SK Table Design
+						
 						* Pre Joined Data
-						* Overloaded Indexes
-						* Numerous GSIs
+						  * Put the entire child document as an attribute in the parent
+						  * If reverse lookup necessary, store parent in child and child in parent
+						* Store redundant information so it's guaranteed to be in any response
+						* Query on secondary indexes
+						  * Access data in a reverse lookup
+						* Ascending vs Descending operations on sort key
+						  * Use `ScanIndexForward` and `ScanIndexForward=False` for highest x or lowest x results
 
 						--
 
 						## 300,000 Scoville
 
-						* One-To-Many Modeling
+						* PK / SK Table Design
+						  * Intentionally overload and keep multiple entities in a single index
+						  * Store simple and complex lookups on the same partition key to return several data types
 						* Sparse Indexes
+						  * Intentionally not writing data into an index to increase query specificity
+						* Store adjadency lists (in same or separate table)
+						* Application joins
 
 						--
 
-						## Carolina Reaper (2 million Scoville)
+						## 2 million Scoville 1 of 2
 
-						* Many-To-Many Modeling
+						* Overloaded Indexes
+						  * Overload sort key to store heirarchical data or data at mulitple levels of heirarchy
+						* Materialize a Graph
+						  * Store a partial of complete key with attributes describing vertexes to other nodes and their relationship
+						* Composite Sort Keys
+						  * Define multiple ordered elements into a single sort key to allow efficient filtering
+						
+						--
+
+						## 2 million Scoville 2 of 2
+						
 						* Double Sided Data Access
+						  * Break a sort key into three sets to further optimize cardinality and speed (think of quicksort LT, E, GT for intuition)
+						* Set algebra
+						  * Given the difference/intersection/union of the keys of these two queries...
 
 						--
 
 						## After death
 
 						* Just use streams to put it in another datastore...man.
+						* Gotcha: Sorts are ordered Lexigraphically by UTF-8 bytes (mind casing!)
 
 						---
 
@@ -245,36 +506,121 @@
 
 						---
 
+						# Fun edge cases
+
+						* Leverage scatter (tables) and gather (queries) for super "hot" partitions
+						  * Example: Running the US Election Counter on Dynamo
+
+						---
+
 						# Backups
 
-						* PITR
-						* On Demand Backups
-						* Restores
+						--
+
+						## Point in Time Recovery (PITR)
+						
+						* (+) Stores all db changes for 35 days
+						* (+) Recover to any point in the last 35 days
+						* (+) No Performance Penalty
+						* (-) No longer term solution
+
+						--
+
+						## AWS Backup Service
+
+						* (+) Integrated with DynamoDB
+						* (+) Centrlized and fully automated
+						* (+) AWS Managed Service
+						* (+) Supports most Database services
+						* (+) The backup can be restored to another region
+						* (=) Creates a backup vault in the same region as the table
+						* (-) The backup cannot be interacted with
+						* (-) The backup cannot be replicated to other regions
+						* (-) The backups cannot be pushed to a different region
+
+						--
+
+						## On Demand Backups (EMR)
+
+						* (+) Super fast
+						* (+) Can handle just about any scale
+						* (+) Dumps S3 where you can inspect and interact with it
+						* (+) Can be replicated via S3 replication
+						* (+) File type contains type information to recreate Dynamo table from backup itself
+						* (=) Creates an EMR cluster
+						* (-) Files hard to read/reason about (super HDFS-ey)
+						* (-) Restores using EMR are super finickey
+						* (-) Any operation requires the recreation of the EMR cluster (slow) or keeping it around (expensive)
+						* (-) Counts against your DDB RCUs
+
+						--
+
+						## On Demand Backups (S3)
+						
+						* (+) Very easy to read/reason about data (Newline separated JSON!)
+						* (+) Super easy to do (click button or single AWS CLI command)
+						* (+) No infra required
+						* (+) Dumps S3 where you can inspect and interact with it
+						* (+) Does not count against your RCUs
+						* (+) Can be replicated via S3 replication
+						* (-) Less fast than EMR backups
+						* (-) Required PITR to be enabled to run
+						* (-) Does not contain the data required to recreate the table
 
 						---
 
 						# Streams
 
-						* Generally awesome
-						* Up to 7 day retention
+						--
+
+						## The Good
+
+						* 24 hour stream retention
+						* Shards correspond 1-1 to partitions
 						* Fast and no load on table
-						* Discussion of shards
-						* ...until you get bad data
-						* Stream blocking, data loss or DLQ
-						* DLQ DDB steam type madness
-						* 
+						* Concurrency is defined per shard
+						* Near real-time triggering at any scale
+						* That record can be:
+						  * The key that changed
+						  * The new value of the item
+						  * The old value of the item
+						  * The new and old value of the item (generally, you want this)
+						* You can enable a DLQ for problematic messages (not default behavior)
+						* Can trigger a lambda or be sent to Kinesis
+
+						--
+
+						## The Bad
+
+						* By default, the stream will block until the message is successfully processed
+						* Bugs in your lambda code can be devastating and, if unaddressed, will cause data loss
+						* BE SUPER MINDFUL OF `starting_position` on `event_source_mapping`
+						  * `TRIM_HORIZON` - Oldest record in shard (24 hours ago)
+						  * `LATEST` - Records start when deployed
+
+						--
+
+						## The Ugly
+
+						* If a message is put in DLQ, it is not the same as the message that lamda receives
+						  * A lambda receives the record, but a pointer to a stream is put into the DLQ
+						  * The pointer only lives 24 hours (vs the DLQ up to 7 days)
+						  * Getting the record the lambda receives from the stream pointer is astonishingly difficult
 
 						---
 
 						# Migrations
 
 						* Parallel Scans are your friend
+						* If you want zero downtime migrations, you will need DDB streams
+						* Generally easier to modify in place
 
 						---
 
 						# Global Tables
 
 						* For truly global scale operations, resiliency, and availability
+						* Implemented as regional tables broadcasting all changes to all other regions
 						* Solve a problem by creating more! 
 						  * Idempotency
 						  * (de)duplication
